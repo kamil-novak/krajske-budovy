@@ -1,0 +1,6 @@
+@import 'https://js.arcgis.com/4.30/@arcgis/core/assets/esri/themes/light/main.css';
+
+:root {
+  /* Colors */
+  --color-one: #C9C6C5;
+}
