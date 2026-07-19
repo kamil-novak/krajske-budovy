@@ -4,3 +4,8 @@
   /* Colors */
   --color-one: #C9C6C5;
 }
+
+calcite-accordion {
+  min-height: 10px;
+  overflow-y: auto;
+}
