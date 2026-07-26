@@ -1,0 +1,1 @@
+import{cW as i,cX as l,cY as s,cZ as o}from"./index-CDFYXRI5.js";function f({level:n,class:e,...c},t){const r=a(n);return i(`h${r}`,{...c,"aria-level":String(r),class:l(s.heading,e),role:"heading"},t)}function a(n){return o(Math.ceil(n),1,6)}function h(n,e=1){return a(n+e)}export{f as i,h as l};

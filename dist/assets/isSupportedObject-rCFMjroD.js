@@ -1,0 +1,1 @@
+function t(e){if(e.graphic&&e.graphic.layer?.type!=="graphics")return 1;const r=e.operations?.data.type;if(!r)return 3;switch(r){case"polygon":case"point":case"polyline":case"mesh":break;default:return 3}return 0}export{t as e};
