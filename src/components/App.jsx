@@ -27,9 +27,9 @@ import "./App.css";
 import iconCheck from "./../images/logo.png"
 
 // HELPERS
-const findLayers = async (layers, config) => {
-  const layerId = config.layersForSelection[0].serviceLayerId
-  const id = config.layersForSelection[0].id
+const findLayers = async (layers, layerConfig) => {
+  const layerId = layerConfig.serviceLayerId
+  const id = layerConfig.id
 
   for (const layer of layers.toArray()) {
     await layer.load?.().catch(() => {});
@@ -39,12 +39,12 @@ const findLayers = async (layers, config) => {
     }
 
     if (layer.layers) {
-      const found = await findLayers(layer.layers, config);
+      const found = await findLayers(layer.layers, layerConfig);
       if (found) return found;
     }
 
     if (layer.sublayers) {
-      const found = await findLayers(layer.sublayers, config);
+      const found = await findLayers(layer.sublayers, layerConfig);
       if (found) return found;
     }
   }
@@ -65,7 +65,7 @@ function App() {
   // REF
   const sceneViewRef = useRef(null)
   const layerViewsRef = useRef(new Map())
-  const temporaryBuildingLayerRef = useRef(null)
+  const temporaryBuildingLayersRef = useRef([])
   const selectedFeatureRef = useRef(null)
 
   // CONFIG
@@ -111,22 +111,40 @@ function App() {
         // console.log("camera-heading: ", cameraHeading)
       }
     ) 
-    
 
-    // Create list of features
     await sceneElement.view.when()
 
     sceneViewRef.current = sceneElement.view;
 
     const loadedFeatures = []
     for (const layer of config.layersForSelection) {
-      const buildingComponentSublayer = await findLayers(sceneElement.view.map.layers, config)
-         
+      // Find layer in webscene
+      const buildingComponentSublayer = await findLayers(sceneElement.view.map.layers, layer)
+
+      // Create transparent version of the scene layer
+      const existsParentLayer = temporaryBuildingLayersRef.current.some(
+        layer => layer.title === buildingComponentSublayer.layer.title
+      )
+      if (!existsParentLayer) {
+        const temporaryBuildingLayer = new BuildingSceneLayer({
+          title: buildingComponentSublayer.layer.title,
+          url: buildingComponentSublayer.layer.url,
+          opacity: 0.06,
+          listMode: "hide",
+          visible: false
+        })
+        temporaryBuildingLayersRef.current.push(temporaryBuildingLayer)
+        sceneElement.view.map.add(temporaryBuildingLayer, 0)
+      }
+           
+      // List all features of layer
       const featuresResponse = await buildingComponentSublayer.queryFeatures({
         where: "1=1",
         outFields: [layer.displayAttr, layer.oidField, layer.globalIdField],
         returnGeometry: true
       }) 
+
+      // Create list of features
       loadedFeatures.push(
         ...featuresResponse.features.map((feature) => ({
           layerTitle: layer.title,
@@ -147,12 +165,14 @@ function App() {
     const view = sceneViewRef.current
     if (!view) { return }
 
-    // Odstranění výběru
+    // Remove from selection
     if (selectedFeature?.feature.attributes[selectedFeature.globalIdField] 
         === feature.feature.attributes[feature.globalIdField]) {
-      view.map.remove(temporaryBuildingLayerRef.current)
-      temporaryBuildingLayerRef.current.destroy()
-      temporaryBuildingLayerRef.current = null
+      for (const parentLayer of temporaryBuildingLayersRef.current ) {
+        if (parentLayer.title === feature.parentLayer.title) {
+          parentLayer.visible = false
+        }
+      }
       feature.defaultLayerVisibility ? feature.layer.visible = true : feature.layer.visible = false
       feature.parentLayer.activeFilterId = null
       selectedFeatureRef.current?.remove()
@@ -162,18 +182,21 @@ function App() {
 
     setSelectedFeature(feature)
 
-    // Dočasná průhledná client-side vrstva budovy
-    if (!temporaryBuildingLayerRef.current) {
-      const temporaryBuildingLayer = new BuildingSceneLayer({
-        url: feature.parentLayer.url,
-        opacity: 0.06,
-        listMode: "hide"
-      })
-      temporaryBuildingLayerRef.current = temporaryBuildingLayer
-      view.map.add(temporaryBuildingLayer, 0)
+    // Zoom to filtered feature
+    if (feature.feature.geometry) {
+      await view.goTo(
+        {
+          target: feature.feature,
+          tilt: 65,
+          scale: 200
+        },
+        {
+          duration: 1000
+        }
+      )
     }
 
-    // Filtrace prvku ve vrstvě budovy
+    // Filter feature
     const globalIdField = feature.globalIdField
     const globalIdValue = feature.feature.attributes[globalIdField]
     feature.layer.visible = true;
@@ -189,30 +212,19 @@ function App() {
     feature.parentLayer.filters = [buildingFilter]
     feature.parentLayer.activeFilterId = buildingFilter.id
 
-    await whenOnce(() => !buildingLayerView.updating)
-
-    // Posun scény na filtrovaný prvek
-    if (feature.feature.geometry) {
-      await view.goTo(
-        {
-          target: feature.feature,
-          tilt: 65,
-          scale: 200
-        },
-        {
-          duration: 1000
-        }
-      )
-    }
-
-    // Zvýraznění filtrovaného prvku
+    // Highlight feature
     selectedFeatureRef.current?.remove();
     selectedFeatureRef.current = null;
     selectedFeatureRef.current = buildingLayerView.highlight(
       feature.feature
     )
 
-
+    // Enable client-side transparent layer
+    for (const parentLayer of temporaryBuildingLayersRef.current ) {
+      if (parentLayer.title === feature.parentLayer.title) {
+        parentLayer.visible = true
+      }
+    }
   }
 
   // USE EFFECTS
