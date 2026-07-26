@@ -33,6 +33,7 @@ import "@arcgis/map-components/components/arcgis-layer-list"
 import FeatureEffect from "@arcgis/core/layers/support/FeatureEffect.js"
 import FeatureFilter from "@arcgis/core/layers/support/FeatureFilter.js"
 import BuildingFilter from "@arcgis/core/layers/support/BuildingFilter.js"
+import BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer.js"
 
 // CSS
 import "./App.css";
@@ -117,11 +118,11 @@ function App() {
     watch(
       () => [sceneElement.cameraPosition, sceneElement.cameraTilt, sceneElement.cameraHeading],
       ([cameraPosition, cameraTilt, cameraHeading]) => {
-        console.log("camera-position X: ", cameraPosition.x)
-        console.log("camera-position Y: ", cameraPosition.y)
-        console.log("camera-position Z: ", cameraPosition.z)
-        console.log("camera-tilt: ", cameraTilt)
-        console.log("camera-heading: ", cameraHeading)
+        // console.log("camera-position X: ", cameraPosition.x)
+        // console.log("camera-position Y: ", cameraPosition.y)
+        // console.log("camera-position Z: ", cameraPosition.z)
+        // console.log("camera-tilt: ", cameraTilt)
+        // console.log("camera-heading: ", cameraHeading)
       }
     ) 
     
@@ -134,15 +135,10 @@ function App() {
     const loadedFeatures = []
     for (const layer of config.layersForSelection) {
       const buildingComponentSublayer = await findLayers(sceneElement.view.map.layers, config)
-      console.log("URL: ", buildingComponentSublayer.layer.url)
-      console.log("Podpora supportsLayerQuery: ", buildingComponentSublayer.getFieldUsageInfo())
-      console.log("Nadřazená vrstva: ", buildingComponentSublayer.layer.title)
-      console.log("Typ vrstvy: ", buildingComponentSublayer.type)
-      console.log("Global ID Filed: ", buildingComponentSublayer.globalIdField)
          
       const featuresResponse = await buildingComponentSublayer.queryFeatures({
         where: "1=1",
-        outFields: [layer.displayAttr, "OID", "GlobalId"],
+        outFields: [layer.displayAttr, layer.oidField, layer.globalIdField],
         returnGeometry: true
       }) 
       loadedFeatures.push(
@@ -150,6 +146,8 @@ function App() {
           layerTitle: layer.title,
           parentLayer: buildingComponentSublayer.layer,
           displayAttr: layer.displayAttr,
+          globalIdField: layer.globalIdField,
+          oidField: layer.oidField,
           layer: buildingComponentSublayer,
           feature
         }))
@@ -162,31 +160,31 @@ function App() {
     const view = sceneViewRef.current
     if (!view) { return }
 
-    //feature.parentLayer.opacity = 0.1
+    // Dočasná průhledná client-side vrstva budovy
+    const temporaryBuildingLayer = new BuildingSceneLayer({
+      url: feature.parentLayer.url,
+      opacity: 0.06,
+      listMode: "hide"
 
+    })
+    view.map.add(temporaryBuildingLayer, 0)
+
+    // Filtrace prvku ve vrstvě budovy
+    const globalIdField = feature.globalIdField
+    const globalIdValue = feature.feature.attributes[globalIdField]
     feature.layer.visible = true;
     const buildingFilter = new BuildingFilter({
       filterBlocks: [{
-        filterExpression: `GlobalId = '${feature.feature.attributes.GlobalId}'`,
+        filterExpression: `${globalIdField} = '${globalIdValue}'`,
         filterMode: {
           type: "solid"
-        }
-      },
-      {
-        filterExpression: `GlobalId <> '${feature.feature.attributes.GlobalId}'`,
-        filterMode: {
-          type: "wire-frame",
-          edges: {
-            type: "solid",
-            color: [255, 255, 255, 0.3],
-            size: 0.4
-          }
         }
       }]
     })
     feature.parentLayer.filters = [buildingFilter]
     feature.parentLayer.activeFilterId = buildingFilter.id
 
+    // Posun scény na filtrovaný prvek
     if (feature.feature.geometry) {
       await view.goTo(
         {
@@ -200,12 +198,10 @@ function App() {
       )
     }
 
-    // Odstranění předchozího zvýraznění
+    // Zvýraznění filtrovaného prvku
     selectedFeatureRef.current?.remove();
     selectedFeatureRef.current = null;
-
     const layerView = await view.whenLayerView(feature.parentLayer)
-
     selectedFeatureRef.current = layerView.highlight(
       feature.feature
     )
@@ -270,7 +266,7 @@ function App() {
                   {
                     features.map((feature) => (
                       <calcite-list-item 
-                        key={`${feature.feature.layer.id}-${feature.feature.attributes.OID}`} 
+                        key={`${feature.feature.layer.id}-${feature.feature.attributes[feature.oidField]}`} 
                         label={feature.feature.attributes[feature.displayAttr]} 
                         description={feature.layerTitle} 
                         value={feature.feature.attributes[feature.displayAttr]}
