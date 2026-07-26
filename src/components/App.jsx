@@ -12,7 +12,7 @@ import "@esri/calcite-components/components/calcite-navigation"
 import "@esri/calcite-components/components/calcite-navigation-logo"
 import "@esri/calcite-components/components/calcite-accordion"
 import "@esri/calcite-components/components/calcite-accordion-item"
-import { watch } from "@arcgis/core/core/reactiveUtils.js"
+import { watch, whenOnce } from "@arcgis/core/core/reactiveUtils.js"
 import Camera from "@arcgis/core/Camera.js"
 import "@arcgis/map-components/components/arcgis-navigation-toggle"
 import "@arcgis/map-components/components/arcgis-compass"
@@ -98,7 +98,6 @@ function App() {
     })
 
     sceneElement.camera = cam
-
     
     watch(
       () => [sceneElement.cameraPosition, sceneElement.cameraTilt, sceneElement.cameraHeading],
@@ -166,8 +165,11 @@ function App() {
         }
       }]
     })
+    const buildingLayerView = await view.whenLayerView(feature.parentLayer)
     feature.parentLayer.filters = [buildingFilter]
     feature.parentLayer.activeFilterId = buildingFilter.id
+
+    await whenOnce(() => !buildingLayerView.updating)
 
     // Posun scény na filtrovaný prvek
     if (feature.feature.geometry) {
@@ -175,7 +177,7 @@ function App() {
         {
           target: feature.feature,
           tilt: 65,
-          scale: 250
+          scale: 200
         },
         {
           duration: 1000
@@ -186,8 +188,7 @@ function App() {
     // Zvýraznění filtrovaného prvku
     selectedFeatureRef.current?.remove();
     selectedFeatureRef.current = null;
-    const layerView = await view.whenLayerView(feature.parentLayer)
-    selectedFeatureRef.current = layerView.highlight(
+    selectedFeatureRef.current = buildingLayerView.highlight(
       feature.feature
     )
   }
