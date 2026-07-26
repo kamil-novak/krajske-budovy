@@ -65,6 +65,7 @@ function App() {
   // REF
   const sceneViewRef = useRef(null)
   const layerViewsRef = useRef(new Map())
+  const temporaryBuildingLayerRef = useRef(null)
   const selectedFeatureRef = useRef(null)
 
   // CONFIG
@@ -146,16 +147,31 @@ function App() {
     const view = sceneViewRef.current
     if (!view) { return }
 
+    // Odstranění výběru
+    if (selectedFeature?.feature.attributes[selectedFeature.globalIdField] 
+        === feature.feature.attributes[feature.globalIdField]) {
+      view.map.remove(temporaryBuildingLayerRef.current)
+      temporaryBuildingLayerRef.current.destroy()
+      temporaryBuildingLayerRef.current = null
+      feature.defaultLayerVisibility ? feature.layer.visible = true : feature.layer.visible = false
+      feature.parentLayer.activeFilterId = null
+      selectedFeatureRef.current?.remove()
+      setSelectedFeature(null)
+      return
+    }
+
     setSelectedFeature(feature)
 
     // Dočasná průhledná client-side vrstva budovy
-    const temporaryBuildingLayer = new BuildingSceneLayer({
-      url: feature.parentLayer.url,
-      opacity: 0.06,
-      listMode: "hide"
-
-    })
-    view.map.add(temporaryBuildingLayer, 0)
+    if (!temporaryBuildingLayerRef.current) {
+      const temporaryBuildingLayer = new BuildingSceneLayer({
+        url: feature.parentLayer.url,
+        opacity: 0.06,
+        listMode: "hide"
+      })
+      temporaryBuildingLayerRef.current = temporaryBuildingLayer
+      view.map.add(temporaryBuildingLayer, 0)
+    }
 
     // Filtrace prvku ve vrstvě budovy
     const globalIdField = feature.globalIdField
@@ -196,14 +212,7 @@ function App() {
       feature.feature
     )
 
-    // Odstranění výběru
-    if (selectedFeature?.feature.attributes[selectedFeature.globalIdField] 
-        === feature.feature.attributes[feature.globalIdField]) {
-      view.map.remove(temporaryBuildingLayer)
-      feature.defaultLayerVisibility ? feature.layer.visible = true : feature.layer.visible = false
-      feature.parentLayer.activeFilterId = null
-      selectedFeatureRef.current?.remove()
-    }
+
   }
 
   // USE EFFECTS
