@@ -60,6 +60,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true) // If application is in loading state
   const [queryParams] = useSearchParams() // URL params
   const [features, setFeatures] = useState([])
+  const [selectedFeature, setSelectedFeature] = useState(null)
 
   // REF
   const sceneViewRef = useRef(null)
@@ -133,6 +134,7 @@ function App() {
           globalIdField: layer.globalIdField,
           oidField: layer.oidField,
           layer: buildingComponentSublayer,
+          defaultLayerVisibility: buildingComponentSublayer.visible,
           feature
         }))
       )
@@ -143,6 +145,8 @@ function App() {
   const handleFeature = async (feature) => {
     const view = sceneViewRef.current
     if (!view) { return }
+
+    setSelectedFeature(feature)
 
     // Dočasná průhledná client-side vrstva budovy
     const temporaryBuildingLayer = new BuildingSceneLayer({
@@ -191,6 +195,15 @@ function App() {
     selectedFeatureRef.current = buildingLayerView.highlight(
       feature.feature
     )
+
+    // Odstranění výběru
+    if (selectedFeature?.feature.attributes[selectedFeature.globalIdField] 
+        === feature.feature.attributes[feature.globalIdField]) {
+      view.map.remove(temporaryBuildingLayer)
+      feature.defaultLayerVisibility ? feature.layer.visible = true : feature.layer.visible = false
+      feature.parentLayer.activeFilterId = null
+      selectedFeatureRef.current?.remove()
+    }
   }
 
   // USE EFFECTS
@@ -248,11 +261,13 @@ function App() {
               </calcite-loader> :
               <calcite-list 
                   filter-enabled={true}
+                  selection-mode="single"
+                  selection-appearance="highlight"
                 >
                   {
                     features.map((feature) => (
                       <calcite-list-item 
-                        key={`${feature.feature.layer.id}-${feature.feature.attributes[feature.oidField]}`} 
+                        key={feature.feature.attributes[feature.globalIdField]} 
                         label={feature.feature.attributes[feature.displayAttr]} 
                         description={feature.layerTitle} 
                         value={feature.feature.attributes[feature.displayAttr]}
