@@ -1,1 +1,0 @@
-import{aG as r,aH as e,aI as u,aJ as m,aK as c,aL as f}from"./index-CDFYXRI5.js";function d(a,t,n,i){const{height:s,width:o}=i??g(a),h=Math.min(o/t,s/n)*r();return e(a,{maxDeviation:h})}function g(a){const t=u(m(),a);return{width:f(t),height:c(t)}}export{d as n};
