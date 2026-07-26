@@ -1,0 +1,18 @@
+{
+  "appName": "3D modely krajských budov",
+  "portalUrl": "https://vysocina.maps.arcgis.com",
+  "sceneItemId": "2347e87cc58647e69766af099564d67a",
+  "initialSceneCamera": {
+    "cameraPosition": [-770013.182848098, -1130421.1403788568, 552.1726279828418],
+    "cameraHeading": "0.5334765553848148",
+    "cameraTilt": "81.44238215240865"
+  },
+
+  "layersForSelection": [
+    {
+      "serviceLayerId": "19b6ea928ed-layer-100",
+      "id": 10,
+      "serviceLayerUrl": "https://services5.arcgis.com/23U721aq9gLRVKxl/ArcGIS/rest/services/Budova_E__3D_sc%c3%a9na__WSL1/FeatureServer/17"
+    }
+  ] 
+}

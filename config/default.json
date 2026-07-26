@@ -1,0 +1,20 @@
+{
+  "appName": "3D modely krajských budov",
+  "portalUrl": "https://vysocina.maps.arcgis.com",
+  "sceneItemId": "2347e87cc58647e69766af099564d67a",
+  "initialSceneCamera": {
+    "cameraPosition": [-670013.182848098, -1130421.1403788568, 552.1726279828418],
+    "cameraHeading": 0.5334765553848148,
+    "cameraTilt": 81.44238215240865
+  },
+  "layersForSelection": [
+    {
+      "serviceLayerId": "5c80316899484c22ac0490885f824e34",
+      "id": 15,
+      "displayAttr": "longname",
+      "oidField": "OID",
+      "globalIdField": "GlobalId",
+      "title": "Místnost budovy E Krajského úřadu"
+    }
+  ] 
+}
