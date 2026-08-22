@@ -12,6 +12,7 @@ import "@esri/calcite-components/components/calcite-navigation"
 import "@esri/calcite-components/components/calcite-navigation-logo"
 import "@esri/calcite-components/components/calcite-accordion"
 import "@esri/calcite-components/components/calcite-accordion-item"
+import "@esri/calcite-components/components/calcite-action"
 import { watch, whenOnce } from "@arcgis/core/core/reactiveUtils.js"
 import Camera from "@arcgis/core/Camera.js"
 import "@arcgis/map-components/components/arcgis-navigation-toggle"
@@ -147,6 +148,8 @@ function App() {
       // Create list of features
       loadedFeatures.push(
         ...featuresResponse.features.map((feature) => ({
+          serviceLayerId: layer.serviceLayerId,
+          id: layer.id,
           layerTitle: layer.title,
           parentLayer: buildingComponentSublayer.layer,
           displayAttr: layer.displayAttr,
@@ -159,6 +162,18 @@ function App() {
       )
     }
     setFeatures(loadedFeatures);
+
+    const find = queryParams.get("find")?.split(",")
+    if (find?.length === 3) {
+      const feature = loadedFeatures.find((feature) =>
+        String(feature.serviceLayerId) === find[0]
+        && String(feature.id) === find[1]
+        && String(feature.feature.attributes[feature.oidField]) === find[2]
+      )
+      if (feature) {
+        await handleFeature(feature)
+      }
+    }
   }
 
   const handleFeature = async (feature) => {
@@ -227,6 +242,21 @@ function App() {
     }
   }
 
+  const getFeatureLink = (feature) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set("find", [
+      feature.serviceLayerId,
+      feature.id,
+      feature.feature.attributes[feature.oidField]
+    ].join(","))
+    return url.href
+  }
+
+  const copyFeatureLink = async (event, feature) => {
+    event.stopPropagation()
+    await navigator.clipboard.writeText(getFeatureLink(feature))
+  }
+
   // USE EFFECTS
   // Load config
   useEffect(() => {
@@ -292,8 +322,16 @@ function App() {
                         label={feature.feature.attributes[feature.displayAttr]} 
                         description={feature.layerTitle} 
                         value={feature.feature.attributes[feature.displayAttr]}
+                        selected={selectedFeature === feature}
                         onClick={() => handleFeature(feature)}
                         >
+                        <calcite-action
+                          slot="actions-end"
+                          icon="link"
+                          text="Kopí­rovat odkaz na prvek"
+                          title="Kopí­rovat odkaz na prvek"
+                          onClick={(event) => copyFeatureLink(event, feature)}
+                        ></calcite-action>
                       </calcite-list-item>
                     ))
                   }
