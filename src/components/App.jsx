@@ -13,6 +13,7 @@ import "@esri/calcite-components/components/calcite-navigation-logo"
 import "@esri/calcite-components/components/calcite-accordion"
 import "@esri/calcite-components/components/calcite-accordion-item"
 import "@esri/calcite-components/components/calcite-action"
+import "@esri/calcite-components/components/calcite-button"
 import "@esri/calcite-components/components/calcite-loader"
 import { watch, whenOnce } from "@arcgis/core/core/reactiveUtils.js"
 import Camera from "@arcgis/core/Camera.js"
@@ -164,6 +165,7 @@ function App() {
     }
     setFeatures(loadedFeatures);
 
+    // Query parametr find
     if (queryParams.has("find")) {
       try {
         const find = queryParams.get("find").split(",")
@@ -329,7 +331,16 @@ function App() {
                 text="Načítám seznam prvků..."
                 type="indeterminate">
               </calcite-loader> :
-              <calcite-list 
+              <>
+                <calcite-button
+                  width="full"
+                  scale="s"
+                  disabled={!selectedFeature}
+                  onClick={() => handleFeature(selectedFeature)}
+                >
+                  Zrušit filtr
+                </calcite-button>
+                <calcite-list 
                   filter-enabled={true}
                   selection-mode="single"
                   selection-appearance="highlight"
@@ -355,6 +366,7 @@ function App() {
                     ))
                   }
                 </calcite-list> 
+              </>
               }
             </calcite-accordion-item>
             <calcite-accordion-item
