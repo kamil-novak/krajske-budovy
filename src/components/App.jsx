@@ -12,6 +12,9 @@ import "@esri/calcite-components/components/calcite-navigation"
 import "@esri/calcite-components/components/calcite-navigation-logo"
 import "@esri/calcite-components/components/calcite-accordion"
 import "@esri/calcite-components/components/calcite-accordion-item"
+import "@esri/calcite-components/components/calcite-action"
+import "@esri/calcite-components/components/calcite-button"
+import "@esri/calcite-components/components/calcite-loader"
 import { watch, whenOnce } from "@arcgis/core/core/reactiveUtils.js"
 import Camera from "@arcgis/core/Camera.js"
 import "@arcgis/map-components/components/arcgis-navigation-toggle"
@@ -56,9 +59,9 @@ const findLayers = async (layers, layerConfig) => {
 function App() {
 
   // STATE
-  const [config, setConfig] = useState(null) // Application config
-  const [isLoading, setIsLoading] = useState(true) // If application is in loading state
   const [queryParams] = useSearchParams() // URL params
+  const [config, setConfig] = useState(null) // Application config
+  const [isLoading, setIsLoading] = useState(queryParams.has("find")) // If application is in loading state
   const [features, setFeatures] = useState([])
   const [selectedFeature, setSelectedFeature] = useState(null)
 
@@ -147,6 +150,8 @@ function App() {
       // Create list of features
       loadedFeatures.push(
         ...featuresResponse.features.map((feature) => ({
+          serviceLayerId: layer.serviceLayerId,
+          id: layer.id,
           layerTitle: layer.title,
           parentLayer: buildingComponentSublayer.layer,
           displayAttr: layer.displayAttr,
@@ -159,6 +164,25 @@ function App() {
       )
     }
     setFeatures(loadedFeatures);
+
+    // Query parametr find
+    if (queryParams.has("find")) {
+      try {
+        const find = queryParams.get("find").split(",")
+        if (find.length === 3) {
+          const feature = loadedFeatures.find((feature) =>
+            String(feature.serviceLayerId) === find[0]
+            && String(feature.id) === find[1]
+            && String(feature.feature.attributes[feature.oidField]) === find[2]
+          )
+          if (feature) {
+            await handleFeature(feature)
+          }
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    }
   }
 
   const handleFeature = async (feature) => {
@@ -227,6 +251,21 @@ function App() {
     }
   }
 
+  const getFeatureLink = (feature) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set("find", [
+      feature.serviceLayerId,
+      feature.id,
+      feature.feature.attributes[feature.oidField]
+    ].join(","))
+    return url.href
+  }
+
+  const copyFeatureLink = async (event, feature) => {
+    event.stopPropagation()
+    await navigator.clipboard.writeText(getFeatureLink(feature))
+  }
+
   // USE EFFECTS
   // Load config
   useEffect(() => {
@@ -257,15 +296,27 @@ function App() {
             description="Demonstrace možnosti výběru částí BIM ve scéně"
           ></calcite-navigation-logo>
         </calcite-navigation>
-        <arcgis-scene 
-          id="Scene"
-          item-id={config.sceneItemId} 
-          onarcgisViewReadyChange={handleViewReady}
-        >
-          <arcgis-zoom slot="top-left"></arcgis-zoom>
-          <arcgis-navigation-toggle slot="top-left"></arcgis-navigation-toggle>
-          <arcgis-compass slot="top-left"></arcgis-compass>
-        </arcgis-scene>
+        <div className="scene-container">
+          <arcgis-scene 
+            id="Scene"
+            item-id={config.sceneItemId} 
+            onarcgisViewReadyChange={handleViewReady}
+          >
+            <arcgis-zoom slot="top-left"></arcgis-zoom>
+            <arcgis-navigation-toggle slot="top-left"></arcgis-navigation-toggle>
+            <arcgis-compass slot="top-left"></arcgis-compass>
+          </arcgis-scene>
+          {isLoading &&
+            <div className="scene-loading-overlay">
+              <calcite-loader
+                label="Načítám prvek z URL parametru..."
+                scale="l"
+                text="Načítám prvek z URL parametru..."
+                type="indeterminate"
+              ></calcite-loader>
+            </div>
+          }
+        </div>
         <calcite-shell-panel slot="panel-end" display-mode="float-content">
           <calcite-accordion
             selection-mode="single"
@@ -280,7 +331,16 @@ function App() {
                 text="Načítám seznam prvků..."
                 type="indeterminate">
               </calcite-loader> :
-              <calcite-list 
+              <>
+                <calcite-button
+                  width="full"
+                  scale="s"
+                  disabled={!selectedFeature}
+                  onClick={() => handleFeature(selectedFeature)}
+                >
+                  Zrušit filtr
+                </calcite-button>
+                <calcite-list 
                   filter-enabled={true}
                   selection-mode="single"
                   selection-appearance="highlight"
@@ -292,12 +352,21 @@ function App() {
                         label={feature.feature.attributes[feature.displayAttr]} 
                         description={feature.layerTitle} 
                         value={feature.feature.attributes[feature.displayAttr]}
+                        selected={selectedFeature === feature}
                         onClick={() => handleFeature(feature)}
                         >
+                        <calcite-action
+                          slot="actions-end"
+                          icon="link"
+                          text="Kopí­rovat odkaz na prvek"
+                          title="Kopí­rovat odkaz na prvek"
+                          onClick={(event) => copyFeatureLink(event, feature)}
+                        ></calcite-action>
                       </calcite-list-item>
                     ))
                   }
                 </calcite-list> 
+              </>
               }
             </calcite-accordion-item>
             <calcite-accordion-item

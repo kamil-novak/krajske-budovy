@@ -5,3 +5,23 @@ body {
   --calcite-navigation-background-color: var(--color-one);
 }
 
+.scene-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.scene-container arcgis-scene {
+  width: 100%;
+  height: 100%;
+}
+
+.scene-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.75);
+}
