@@ -30,24 +30,25 @@ import "./App.css";
 import iconCheck from "./../images/logo.png"
 
 // HELPERS
-const findLayers = async (layers, layerConfig) => {
+const findLayers = async (layers, layerConfig, parentLayers = []) => {
   const layerId = layerConfig.serviceLayerId
   const id = layerConfig.id
 
   for (const layer of layers.toArray()) {
     await layer.load?.().catch(() => {});
+    const layerHierarchy = [...parentLayers, layer]
 
     if (layer.id === id && layer?.layer?.id === layerId) {
-      return layer;
+      return { layer, layerHierarchy };
     }
 
     if (layer.layers) {
-      const found = await findLayers(layer.layers, layerConfig);
+      const found = await findLayers(layer.layers, layerConfig, layerHierarchy);
       if (found) return found;
     }
 
     if (layer.sublayers) {
-      const found = await findLayers(layer.sublayers, layerConfig);
+      const found = await findLayers(layer.sublayers, layerConfig, layerHierarchy);
       if (found) return found;
     }
   }
@@ -89,6 +90,9 @@ function App() {
   const layerViewsRef = useRef(new Map())
   const temporaryBuildingLayersRef = useRef([])
   const selectedFeatureRef = useRef(null)
+  const activeFeatureRef = useRef(null)
+  const layerVisibilityRef = useRef(new Map())
+  const buildingFilterStateRef = useRef(null)
 
   // CONFIG
   const getData = async () => {
@@ -141,7 +145,10 @@ function App() {
     const loadedFeatures = []
     for (const layer of config.layersForSelection) {
       // Find layer in webscene
-      const buildingComponentSublayer = await findLayers(sceneElement.view.map.layers, layer)
+      const {
+        layer: buildingComponentSublayer,
+        layerHierarchy
+      } = await findLayers(sceneElement.view.map.layers, layer)
 
       // Create transparent version of the scene layer
       const existsParentLayer = temporaryBuildingLayersRef.current.some(
@@ -177,7 +184,7 @@ function App() {
           displayField: layer.displayField,
           uniqueField: layer.uniqueField,
           layer: buildingComponentSublayer,
-          defaultLayerVisibility: buildingComponentSublayer.visible,
+          layerHierarchy,
           feature
         }))
       )
@@ -214,27 +221,57 @@ function App() {
     }
   }
 
+  const clearFeatureSelection = (feature) => {
+    for (const parentLayer of temporaryBuildingLayersRef.current) {
+      if (parentLayer.title === feature.parentLayer.title) {
+        parentLayer.visible = false
+      }
+    }
+
+    const filterState = buildingFilterStateRef.current
+    if (filterState) {
+      filterState.layer.filters = filterState.filters
+      filterState.layer.activeFilterId = filterState.activeFilterId
+    }
+
+    for (const [layer, visible] of layerVisibilityRef.current) {
+      layer.visible = visible
+    }
+
+    selectedFeatureRef.current?.remove()
+    selectedFeatureRef.current = null
+    activeFeatureRef.current = null
+    layerVisibilityRef.current.clear()
+    buildingFilterStateRef.current = null
+    setSelectedFeature(null)
+  }
+
   const handleFeature = async (feature) => {
     const view = sceneViewRef.current
     if (!view) { return }
 
     // Remove from selection
-    if (selectedFeature?.serviceLayerId === feature.serviceLayerId
-        && selectedFeature.id === feature.id
-        && selectedFeature.feature.attributes[selectedFeature.uniqueField]
+    const activeFeature = activeFeatureRef.current
+    if (activeFeature?.serviceLayerId === feature.serviceLayerId
+        && activeFeature.id === feature.id
+        && activeFeature.feature.attributes[activeFeature.uniqueField]
         === feature.feature.attributes[feature.uniqueField]) {
-      for (const parentLayer of temporaryBuildingLayersRef.current ) {
-        if (parentLayer.title === feature.parentLayer.title) {
-          parentLayer.visible = false
-        }
-      }
-      feature.defaultLayerVisibility ? feature.layer.visible = true : feature.layer.visible = false
-      feature.parentLayer.activeFilterId = null
-      selectedFeatureRef.current?.remove()
-      setSelectedFeature(null)
+      clearFeatureSelection(feature)
       return
     }
 
+    if (activeFeature) {
+      clearFeatureSelection(activeFeature)
+    }
+
+    layerVisibilityRef.current = new Map(
+      feature.layerHierarchy.map((layer) => [layer, layer.visible])
+    )
+    for (const layer of feature.layerHierarchy) {
+      layer.visible = true
+    }
+
+    activeFeatureRef.current = feature
     setSelectedFeature(feature)
 
     // Zoom to filtered feature
@@ -254,7 +291,6 @@ function App() {
     // Filter feature
     const uniqueField = feature.uniqueField
     const uniqueValue = feature.feature.attributes[uniqueField]
-    feature.layer.visible = true;
     const buildingFilter = new BuildingFilter({
       filterBlocks: [{
         filterExpression: `${uniqueField} = ${getFilterValue(uniqueValue)}`,
@@ -264,6 +300,11 @@ function App() {
       }]
     })
     const buildingLayerView = await view.whenLayerView(feature.parentLayer)
+    buildingFilterStateRef.current = {
+      layer: feature.parentLayer,
+      filters: feature.parentLayer.filters.map((filter) => filter.clone()),
+      activeFilterId: feature.parentLayer.activeFilterId
+    }
     feature.parentLayer.filters = [buildingFilter]
     feature.parentLayer.activeFilterId = buildingFilter.id
 
