@@ -13,10 +13,10 @@ Aplikace může být volána s URL parametrem `config`. Toto volání umožňuje
 **URL parametr `find`:**<br>
 Aplikace může být volána s URL parametrem `find`. Parametr find umožňuje po spuštění aplikace automaticky vyhledat konkrétní prvek modelu, přiblížit na něj scénu, filtrovat model a označit prvek v panelu. Parametr se skládá ze tří hodnot oddělených čárkou:
 
-`https://www.example.com?find=serviceLayerId,id,oidValue`, př. `https://www.example.com/?find=5c80316899484c22ac0490885f824e34,15,123`
+`https://www.example.com?find=serviceLayerId,id,queryParamValue`, př. `https://www.example.com/?find=5c80316899484c22ac0490885f824e34,15,123`
 - `serviceLayerId` – ID mapové služby, ve které se nachází požadovaný prvek modelu (v konfiguraci `layersForSelection -> serviceLayerId`)
 - `id` – ID vrstvy, ve které se nachází požadovaný prvek modelu (v konfiguraci `layersForSelection -> id`)
-- `oidValue` – hodnota OID atributu požadovaného prvku modelu (OID atribut nastavená v konfiguraci v `layersForSelection -> oidField`)
+- `queryParamValue` – číselná nebo textová hodnota atributu požadovaného prvku modelu (atribut nastavený v konfiguraci v `layersForSelection -> queryParamField`)
 
 Hotový odkaz lze získat přímo v aplikaci v panelu Filtr. U každého prvku je tlačítko pro zkopírování odkazu. Zkopírovaná URL zachová všechny aktuální parametry aplikace a doplní parametr find pro vybraný prvek. Čárky mohou být v URL automaticky zapsány také jako %2C; oba zápisy jsou ekvivalentní.
 
@@ -65,8 +65,8 @@ Na modelovém příkladu nastavení jsou vidět pozice parametrů v kontextu str
       "id": 10,
       // Atribut, který se zobrazí ve výpisu prvků v panelu
       "displayAttr": "longname",
-      // Název OID pole vrstvy
-      "oidField": "OID",
+      // Název pole vrstvy použitého v URL parametru find
+      "queryParamField": "OID",
       // Název Global ID pole vrstvy
       "globalIdField": "GlobalId",
       // Libovolný název, který se zobrazí ve výpisu prvků v panelu
@@ -83,6 +83,5 @@ Na modelovém příkladu nastavení jsou vidět pozice parametrů v kontextu str
 
 ## Testování
 \-\-\-
-
 
 

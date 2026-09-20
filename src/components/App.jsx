@@ -143,7 +143,7 @@ function App() {
       // List all features of layer
       const featuresResponse = await buildingComponentSublayer.queryFeatures({
         where: "1=1",
-        outFields: [layer.displayAttr, layer.oidField, layer.globalIdField],
+        outFields: [layer.displayAttr, layer.queryParamField, layer.globalIdField],
         returnGeometry: true
       }) 
 
@@ -156,7 +156,7 @@ function App() {
           parentLayer: buildingComponentSublayer.layer,
           displayAttr: layer.displayAttr,
           globalIdField: layer.globalIdField,
-          oidField: layer.oidField,
+          queryParamField: layer.queryParamField,
           layer: buildingComponentSublayer,
           defaultLayerVisibility: buildingComponentSublayer.visible,
           feature
@@ -173,7 +173,7 @@ function App() {
           const feature = loadedFeatures.find((feature) =>
             String(feature.serviceLayerId) === find[0]
             && String(feature.id) === find[1]
-            && String(feature.feature.attributes[feature.oidField]) === find[2]
+            && String(feature.feature.attributes[feature.queryParamField]) === find[2]
           )
           if (feature) {
             await handleFeature(feature)
@@ -256,7 +256,7 @@ function App() {
     url.searchParams.set("find", [
       feature.serviceLayerId,
       feature.id,
-      feature.feature.attributes[feature.oidField]
+      feature.feature.attributes[feature.queryParamField]
     ].join(","))
     return url.href
   }
