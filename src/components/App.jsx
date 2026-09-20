@@ -115,6 +115,7 @@ function App() {
   const [queryParams] = useSearchParams() // URL params
   const [config, setConfig] = useState(null) // Application config
   const [isLoading, setIsLoading] = useState(queryParams.has("find")) // If application is in loading state
+  const [isZooming, setIsZooming] = useState(false)
   const [features, setFeatures] = useState([])
   const [selectedFeature, setSelectedFeature] = useState(null)
 
@@ -258,6 +259,7 @@ function App() {
   const clearFeatureSelection = (feature) => {
     featureNavigationRef.current?.abort()
     featureNavigationRef.current = null
+    setIsZooming(false)
 
     for (const parentLayer of temporaryBuildingLayersRef.current) {
       if (parentLayer.title === feature.parentLayer.title) {
@@ -312,47 +314,53 @@ function App() {
     setSelectedFeature(feature)
     const navigation = new AbortController()
     featureNavigationRef.current = navigation
-
-    // Filter feature
-    const uniqueField = feature.uniqueField
-    const uniqueValue = feature.feature.attributes[uniqueField]
-    const buildingFilter = new BuildingFilter({
-      filterBlocks: [{
-        filterExpression: `${uniqueField} = ${getFilterValue(uniqueValue)}`,
-        filterMode: {
-          type: "solid"
-        }
-      }]
-    })
-    const buildingLayerView = await view.whenLayerView(feature.parentLayer)
-    if (navigation.signal.aborted) { return }
-    buildingFilterStateRef.current = {
-      layer: feature.parentLayer,
-      filters: feature.parentLayer.filters.map((filter) => filter.clone()),
-      activeFilterId: feature.parentLayer.activeFilterId
-    }
-    feature.parentLayer.filters = [buildingFilter]
-    feature.parentLayer.activeFilterId = buildingFilter.id
-
-    // Highlight feature
-    selectedFeatureRef.current?.remove();
-    selectedFeatureRef.current = null;
-    selectedFeatureRef.current = buildingLayerView.highlight(
-      feature.feature
-    )
-
-    // Enable client-side transparent layer
-    for (const parentLayer of temporaryBuildingLayersRef.current ) {
-      if (parentLayer.title === feature.parentLayer.title) {
-        parentLayer.visible = true
-      }
-    }
+    setIsZooming(true)
 
     try {
+      // Filter feature
+      const uniqueField = feature.uniqueField
+      const uniqueValue = feature.feature.attributes[uniqueField]
+      const buildingFilter = new BuildingFilter({
+        filterBlocks: [{
+          filterExpression: `${uniqueField} = ${getFilterValue(uniqueValue)}`,
+          filterMode: {
+            type: "solid"
+          }
+        }]
+      })
+      const buildingLayerView = await view.whenLayerView(feature.parentLayer)
+      if (navigation.signal.aborted) { return }
+      buildingFilterStateRef.current = {
+        layer: feature.parentLayer,
+        filters: feature.parentLayer.filters.map((filter) => filter.clone()),
+        activeFilterId: feature.parentLayer.activeFilterId
+      }
+      feature.parentLayer.filters = [buildingFilter]
+      feature.parentLayer.activeFilterId = buildingFilter.id
+
+      // Highlight feature
+      selectedFeatureRef.current?.remove();
+      selectedFeatureRef.current = null;
+      selectedFeatureRef.current = buildingLayerView.highlight(
+        feature.feature
+      )
+
+      // Enable client-side transparent layer
+      for (const parentLayer of temporaryBuildingLayersRef.current ) {
+        if (parentLayer.title === feature.parentLayer.title) {
+          parentLayer.visible = true
+        }
+      }
+
       await zoomToFeature(view, feature, buildingLayerView, navigation.signal)
     } catch (error) {
       if (error.name !== "AbortError") {
         console.error(error)
+      }
+    } finally {
+      if (featureNavigationRef.current === navigation) {
+        featureNavigationRef.current = null
+        setIsZooming(false)
       }
     }
   }
@@ -412,12 +420,12 @@ function App() {
             <arcgis-navigation-toggle slot="top-left"></arcgis-navigation-toggle>
             <arcgis-compass slot="top-left"></arcgis-compass>
           </arcgis-scene>
-          {isLoading &&
+          {(isLoading || isZooming) &&
             <div className="scene-loading-overlay">
               <calcite-loader
-                label="Načítám prvek z URL parametru..."
+                label="Přibližuji vybraný prvek..."
                 scale="l"
-                text="Načítám prvek z URL parametru..."
+                text="Přibližuji vybraný prvek..."
                 type="indeterminate"
               ></calcite-loader>
             </div>
