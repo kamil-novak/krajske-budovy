@@ -63,8 +63,9 @@ Na modelovém příkladu nastavení jsou vidět pozice parametrů v kontextu str
     {
       "serviceLayerId": "19b6ea928ed-layer-100",
       "id": 10,
-      // Atribut, který se zobrazí ve výpisu prvků v panelu
-      "displayAttr": "longname",
+      // Text a atributy, které se zobrazí ve výpisu prvků v panelu
+      // Názvy atributů se uvádějí ve složených závorkách
+      "displayField": "{longname}, {OID}",
       // Název pole vrstvy použitého v URL parametru find
       "queryParamField": "OID",
       // Název Global ID pole vrstvy

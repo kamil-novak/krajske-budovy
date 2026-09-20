@@ -55,6 +55,12 @@ const findLayers = async (layers, layerConfig) => {
   return null;
 }
 
+const getDisplayFields = (displayField) =>
+  [...displayField.matchAll(/\{([^}]+)\}/g)].map((match) => match[1])
+
+const getDisplayText = (displayField, attributes) =>
+  displayField.replace(/\{([^}]+)\}/g, (_, field) => attributes[field] ?? "")
+
 // COMPONENT
 function App() {
 
@@ -141,9 +147,10 @@ function App() {
       }
            
       // List all features of layer
+      const displayFields = getDisplayFields(layer.displayField)
       const featuresResponse = await buildingComponentSublayer.queryFeatures({
         where: "1=1",
-        outFields: [layer.displayAttr, layer.queryParamField, layer.globalIdField],
+        outFields: [...new Set([...displayFields, layer.queryParamField, layer.globalIdField])],
         returnGeometry: true
       }) 
 
@@ -154,7 +161,7 @@ function App() {
           id: layer.id,
           layerTitle: layer.title,
           parentLayer: buildingComponentSublayer.layer,
-          displayAttr: layer.displayAttr,
+          displayField: layer.displayField,
           globalIdField: layer.globalIdField,
           queryParamField: layer.queryParamField,
           layer: buildingComponentSublayer,
@@ -349,9 +356,9 @@ function App() {
                     features.map((feature) => (
                       <calcite-list-item 
                         key={feature.feature.attributes[feature.globalIdField]} 
-                        label={feature.feature.attributes[feature.displayAttr]} 
+                        label={getDisplayText(feature.displayField, feature.feature.attributes)}
                         description={feature.layerTitle} 
-                        value={feature.feature.attributes[feature.displayAttr]}
+                        value={getDisplayText(feature.displayField, feature.feature.attributes)}
                         selected={selectedFeature === feature}
                         onClick={() => handleFeature(feature)}
                         >

@@ -11,7 +11,7 @@
     {
       "serviceLayerId": "5c80316899484c22ac0490885f824e34",
       "id": 15,
-      "displayAttr": "longname",
+      "displayField": "{longname}, {OID}",
       "queryParamField": "OID",
       "globalIdField": "GlobalId",
       "title": "Místnost budovy E Krajského úřadu"
