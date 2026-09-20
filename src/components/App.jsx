@@ -64,7 +64,7 @@ const getDisplayText = (displayField, attributes) =>
 const handleLayerListItemCreated = (event) => {
   if (!event.item.parent) {
     event.item.actionsSections = [[{
-      title: "Zoom na budovu",
+      title: "Přiblížit",
       icon: "magnifying-glass-plus",
       id: "full-extent"
     }]]
