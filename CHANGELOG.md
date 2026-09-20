@@ -1,5 +1,9 @@
 # Krajské budovy
 
+## **1.0.3 (2026-09-20)**
+### Oprava
+- Oddělení závislosti přiblížení na prvek v URL parametru na načítání seznamu prvků.
+
 ## **1.0.2 (2026-09-20)**
 ### Úpravy
 - Vypnutí headeru na mobilních zařízeních.

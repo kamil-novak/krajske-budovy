@@ -65,6 +65,19 @@ const getDisplayText = (displayField, attributes) =>
 const getFilterValue = (value) =>
   typeof value === "number" ? value : `'${String(value).replaceAll("'", "''")}'`
 
+const getQueryValue = (layer, fieldName, value) => {
+  const field = layer.fields?.find(
+    (field) => field.name.toLowerCase() === fieldName.toLowerCase()
+  )
+  const numericFieldTypes = [
+    "oid", "small-integer", "integer", "single", "double", "long", "big-integer"
+  ]
+
+  return numericFieldTypes.includes(field?.type) && Number.isFinite(Number(value))
+    ? Number(value)
+    : value
+}
+
 const zoomToFeature = async (view, feature, buildingLayerView, signal) => {
   const sublayerView = await whenOnce(
     () => buildingLayerView.sublayerViews.find((sublayerView) => sublayerView.sublayer === feature.layer),
@@ -177,13 +190,21 @@ function App() {
 
     sceneViewRef.current = sceneElement.view;
 
-    const loadedFeatures = []
-    for (const layer of config.layersForSelection) {
+    const resolvedLayers = new Map()
+    const resolveLayer = async (layerConfig) => {
+      if (resolvedLayers.has(layerConfig)) {
+        return resolvedLayers.get(layerConfig)
+      }
+
       // Find layer in webscene
+      const foundLayer = await findLayers(sceneElement.view.map.layers, layerConfig)
+      if (!foundLayer) {
+        throw new Error(`Layer ${layerConfig.serviceLayerId}/${layerConfig.id} was not found.`)
+      }
       const {
         layer: buildingComponentSublayer,
         layerHierarchy
-      } = await findLayers(sceneElement.view.map.layers, layer)
+      } = foundLayer
 
       // Create transparent version of the scene layer
       const existsParentLayer = temporaryBuildingLayersRef.current.some(
@@ -200,51 +221,99 @@ function App() {
         temporaryBuildingLayersRef.current.push(temporaryBuildingLayer)
         sceneElement.view.map.add(temporaryBuildingLayer, 0)
       }
-           
-      // List all features of layer
-      const displayFields = getDisplayFields(layer.displayField)
-      const featuresResponse = await buildingComponentSublayer.queryFeatures({
-        where: "1=1",
-        outFields: [...new Set([...displayFields, layer.uniqueField, buildingComponentSublayer.objectIdField])],
-        returnGeometry: true
-      }) 
 
-      // Create list of features
-      loadedFeatures.push(
-        ...featuresResponse.features.map((feature) => ({
-          serviceLayerId: layer.serviceLayerId,
-          id: layer.id,
-          layerTitle: layer.title,
-          parentLayer: buildingComponentSublayer.layer,
-          displayField: layer.displayField,
-          uniqueField: layer.uniqueField,
-          layer: buildingComponentSublayer,
-          layerHierarchy,
-          feature
-        }))
-      )
+      const resolvedLayer = { buildingComponentSublayer, layerHierarchy }
+      resolvedLayers.set(layerConfig, resolvedLayer)
+      return resolvedLayer
     }
-    setFeatures(loadedFeatures);
 
-    // Query parametr find
-    if (queryParams.has("find")) {
+    const createFeature = (layerConfig, resolvedLayer, feature) => ({
+      serviceLayerId: layerConfig.serviceLayerId,
+      id: layerConfig.id,
+      layerTitle: layerConfig.title,
+      parentLayer: resolvedLayer.buildingComponentSublayer.layer,
+      displayField: layerConfig.displayField,
+      uniqueField: layerConfig.uniqueField,
+      layer: resolvedLayer.buildingComponentSublayer,
+      layerHierarchy: resolvedLayer.layerHierarchy,
+      feature
+    })
+
+    const getOutFields = (layerConfig, buildingComponentSublayer) => [
+      ...new Set([
+        ...getDisplayFields(layerConfig.displayField),
+        layerConfig.uniqueField,
+        buildingComponentSublayer.objectIdField
+      ])
+    ]
+
+    // Resolve and select the requested feature before loading the complete list.
+    let initialFeature = null
+    let initialSelection = Promise.resolve()
+    const find = queryParams.get("find")?.split(",")
+    if (find?.length >= 3) {
+      const uniqueValue = find.slice(2).join(",")
+      const layerConfig = config.layersForSelection.find((layer) =>
+        String(layer.serviceLayerId) === find[0] && String(layer.id) === find[1]
+      )
+
       try {
-        const find = queryParams.get("find").split(",")
-        if (find.length >= 3) {
-          const uniqueValue = find.slice(2).join(",")
-          const feature = loadedFeatures.find((feature) =>
-            String(feature.serviceLayerId) === find[0]
-            && String(feature.id) === find[1]
-            && String(feature.feature.attributes[feature.uniqueField]) === uniqueValue
+        if (layerConfig) {
+          const resolvedLayer = await resolveLayer(layerConfig)
+          const { buildingComponentSublayer } = resolvedLayer
+          const queryValue = getQueryValue(
+            buildingComponentSublayer,
+            layerConfig.uniqueField,
+            uniqueValue
+          )
+          const featuresResponse = await buildingComponentSublayer.queryFeatures({
+            where: `${layerConfig.uniqueField} = ${getFilterValue(queryValue)}`,
+            outFields: getOutFields(layerConfig, buildingComponentSublayer),
+            returnGeometry: true,
+            num: 1
+          })
+          const feature = featuresResponse.features.find((feature) =>
+            String(feature.attributes[layerConfig.uniqueField]) === uniqueValue
           )
           if (feature) {
-            await handleFeature(feature)
+            initialFeature = createFeature(layerConfig, resolvedLayer, feature)
+            initialSelection = handleFeature(initialFeature)
           }
         }
+      } catch (error) {
+        console.error(error)
       } finally {
-        setIsLoading(false)
+        initialSelection = initialSelection.finally(() => setIsLoading(false))
       }
+    } else if (queryParams.has("find")) {
+      setIsLoading(false)
     }
+
+    // Load the complete list independently from the initial selection.
+    const loadedFeatures = (await Promise.all(config.layersForSelection.map(async (layerConfig) => {
+      const resolvedLayer = await resolveLayer(layerConfig)
+      const { buildingComponentSublayer } = resolvedLayer
+      const featuresResponse = await buildingComponentSublayer.queryFeatures({
+        where: "1=1",
+        outFields: getOutFields(layerConfig, buildingComponentSublayer),
+        returnGeometry: true
+      })
+
+      return featuresResponse.features.map((feature) => {
+        if (initialFeature
+            && String(initialFeature.serviceLayerId) === String(layerConfig.serviceLayerId)
+            && String(initialFeature.id) === String(layerConfig.id)
+            && String(feature.attributes[layerConfig.uniqueField])
+              === String(initialFeature.feature.attributes[initialFeature.uniqueField])) {
+          return initialFeature
+        }
+
+        return createFeature(layerConfig, resolvedLayer, feature)
+      })
+    }))).flat()
+
+    setFeatures(loadedFeatures)
+    await initialSelection
   }
 
   const handleLayerListAction = async (event) => {
