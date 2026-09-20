@@ -61,6 +61,16 @@ const getDisplayFields = (displayField) =>
 const getDisplayText = (displayField, attributes) =>
   displayField.replace(/\{([^}]+)\}/g, (_, field) => attributes[field] ?? "")
 
+const handleLayerListItemCreated = (event) => {
+  if (!event.item.parent) {
+    event.item.actionsSections = [[{
+      title: "Zoom na budovu",
+      icon: "magnifying-glass-plus",
+      id: "full-extent"
+    }]]
+  }
+}
+
 // COMPONENT
 function App() {
 
@@ -188,6 +198,15 @@ function App() {
         }
       } finally {
         setIsLoading(false)
+      }
+    }
+  }
+
+  const handleLayerListAction = async (event) => {
+    if (event.detail.action.id === "full-extent") {
+      const layer = await event.detail.item.layer.load()
+      if (layer.fullExtent) {
+        await sceneViewRef.current?.goTo(layer.fullExtent)
       }
     }
   }
@@ -324,7 +343,7 @@ function App() {
             </div>
           }
         </div>
-        <calcite-shell-panel slot="panel-end" display-mode="float-content">
+        <calcite-shell-panel slot="panel-end" display-mode="float-content" width="m">
           <calcite-accordion
             selection-mode="single"
           >
@@ -379,7 +398,12 @@ function App() {
             <calcite-accordion-item
               description="Vrstvy scény" heading="Vrstvy" icon-start="layers"
             >
-              <arcgis-layer-list reference-element="Scene" show-filter={true}></arcgis-layer-list>
+              <arcgis-layer-list
+                reference-element="Scene"
+                show-filter={true}
+                listItemCreatedFunction={handleLayerListItemCreated}
+                onarcgisTriggerAction={handleLayerListAction}
+              ></arcgis-layer-list>
             </calcite-accordion-item>
           </calcite-accordion>
         </calcite-shell-panel>

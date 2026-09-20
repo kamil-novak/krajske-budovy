@@ -5,6 +5,7 @@
 - Vypnutí headeru na mobilních zařízeních.
 - Vypnutí fixního měřítka při zoomu na objekt.
 - Možnost skládat text, který se zobrazí ve výpisu prvků v panelu z více atributů a obyčejného textu. Názvy atributů se uvádí ve složených závorkách.
+- Přidáno tlačítko "Zoom na budovu" do nástroje "Vrstvy"
 
 ## **1.0.1 (2026-08-22)**
 ### Nové funkce
