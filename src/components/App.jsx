@@ -212,7 +212,7 @@ function App() {
         {
           target: feature.feature,
           tilt: 65,
-          scale: 200
+          // scale: 200
         },
         {
           duration: 1000
