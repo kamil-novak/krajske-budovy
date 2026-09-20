@@ -25,3 +25,14 @@ body {
   justify-content: center;
   background: rgba(255, 255, 255, 0.75);
 }
+
+calcite-shell-panel[slot="panel-end"] {
+  --calcite-shell-panel-width: clamp(20rem, 24vw, 28rem);
+  --calcite-shell-panel-max-width: calc(100vw - 2rem);
+}
+
+@media (max-width: 450px) {
+  calcite-navigation {
+    display: none;
+  }
+}

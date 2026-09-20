@@ -10,8 +10,3 @@ calcite-accordion {
   overflow-y: auto;
 }
 
-@media (max-width: 450px) {
-  calcite-navigation {
-    display: none;
-  }
-}
