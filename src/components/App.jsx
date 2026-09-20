@@ -65,6 +65,39 @@ const getDisplayText = (displayField, attributes) =>
 const getFilterValue = (value) =>
   typeof value === "number" ? value : `'${String(value).replaceAll("'", "''")}'`
 
+const zoomToFeature = async (view, feature, buildingLayerView, signal) => {
+  const sublayerView = await whenOnce(
+    () => buildingLayerView.sublayerViews.find((sublayerView) => sublayerView.sublayer === feature.layer),
+    { signal }
+  )
+  const query = sublayerView.createQuery()
+  query.objectIds = [feature.feature.getObjectId()]
+
+  await whenOnce(() => !sublayerView.updating, { signal })
+  let { extent } = await sublayerView.queryExtent(query, { signal })
+
+  // Client-side queries only include models already loaded in the view.
+  if (!extent) {
+    await view.goTo(
+      { target: [feature.parentLayer.fullExtent], tilt: 65 },
+      { duration: 1000, signal }
+    )
+    await whenOnce(() => !view.updating && !sublayerView.updating, { signal })
+    const result = await sublayerView.queryExtent(query, { signal })
+    extent = result.extent
+  }
+
+  if (!extent || !Number.isFinite(extent.zmin) || !Number.isFinite(extent.zmax)) {
+    throw new Error("The selected feature's 3D extent is not available.")
+  }
+
+  // Fit the complete 3D bounds around their center, including the model's height.
+  await view.goTo(
+    { target: [extent], tilt: 65 },
+    { duration: 1000, signal }
+  )
+}
+
 const handleLayerListItemCreated = (event) => {
   if (!event.item.parent) {
     event.item.actionsSections = [[{
@@ -93,6 +126,7 @@ function App() {
   const activeFeatureRef = useRef(null)
   const layerVisibilityRef = useRef(new Map())
   const buildingFilterStateRef = useRef(null)
+  const featureNavigationRef = useRef(null)
 
   // CONFIG
   const getData = async () => {
@@ -170,7 +204,7 @@ function App() {
       const displayFields = getDisplayFields(layer.displayField)
       const featuresResponse = await buildingComponentSublayer.queryFeatures({
         where: "1=1",
-        outFields: [...new Set([...displayFields, layer.uniqueField])],
+        outFields: [...new Set([...displayFields, layer.uniqueField, buildingComponentSublayer.objectIdField])],
         returnGeometry: true
       }) 
 
@@ -222,6 +256,9 @@ function App() {
   }
 
   const clearFeatureSelection = (feature) => {
+    featureNavigationRef.current?.abort()
+    featureNavigationRef.current = null
+
     for (const parentLayer of temporaryBuildingLayersRef.current) {
       if (parentLayer.title === feature.parentLayer.title) {
         parentLayer.visible = false
@@ -273,20 +310,8 @@ function App() {
 
     activeFeatureRef.current = feature
     setSelectedFeature(feature)
-
-    // Zoom to filtered feature
-    if (feature.feature.geometry) {
-      await view.goTo(
-        {
-          target: feature.feature,
-          tilt: 65,
-          // scale: 200
-        },
-        {
-          duration: 1000
-        }
-      )
-    }
+    const navigation = new AbortController()
+    featureNavigationRef.current = navigation
 
     // Filter feature
     const uniqueField = feature.uniqueField
@@ -300,6 +325,7 @@ function App() {
       }]
     })
     const buildingLayerView = await view.whenLayerView(feature.parentLayer)
+    if (navigation.signal.aborted) { return }
     buildingFilterStateRef.current = {
       layer: feature.parentLayer,
       filters: feature.parentLayer.filters.map((filter) => filter.clone()),
@@ -319,6 +345,14 @@ function App() {
     for (const parentLayer of temporaryBuildingLayersRef.current ) {
       if (parentLayer.title === feature.parentLayer.title) {
         parentLayer.visible = true
+      }
+    }
+
+    try {
+      await zoomToFeature(view, feature, buildingLayerView, navigation.signal)
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error(error)
       }
     }
   }
