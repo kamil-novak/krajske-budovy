@@ -9,3 +9,9 @@ calcite-accordion {
   min-height: 10px;
   overflow-y: auto;
 }
+
+@media (max-width: 450px) {
+  calcite-navigation {
+    display: none;
+  }
+}
