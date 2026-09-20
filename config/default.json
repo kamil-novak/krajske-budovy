@@ -10,10 +10,17 @@
   "layersForSelection": [
     {
       "serviceLayerId": "5c80316899484c22ac0490885f824e34",
-      "id": 42,
-      "displayField": "Typ: {Název_typu}",
+      "id": 15,
+      "displayField": "Místnost: {longname}, {BldgAddress}",
       "uniqueField": "OID",
-      "title": "Místnost budovy E Krajského úřadu"
+      "title": "Budova E Krajského úřadu"
+    },
+    {
+      "serviceLayerId": "5c80316899484c22ac0490885f824e34",
+      "id": 42,
+      "displayField": "Požární hydrant: {Název_typu}",
+      "uniqueField": "OID",
+      "title": "Budova E Krajského úřadu"
     }
   ] 
 }
