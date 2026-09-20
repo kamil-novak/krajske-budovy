@@ -13,10 +13,10 @@ Aplikace může být volána s URL parametrem `config`. Toto volání umožňuje
 **URL parametr `find`:**<br>
 Aplikace může být volána s URL parametrem `find`. Parametr find umožňuje po spuštění aplikace automaticky vyhledat konkrétní prvek modelu, přiblížit na něj scénu, filtrovat model a označit prvek v panelu. Parametr se skládá ze tří hodnot oddělených čárkou:
 
-`https://www.example.com?find=serviceLayerId,id,queryParamValue`, př. `https://www.example.com/?find=5c80316899484c22ac0490885f824e34,15,123`
+`https://www.example.com?find=serviceLayerId,id,uniqueValue`, př. `https://www.example.com/?find=5c80316899484c22ac0490885f824e34,15,123`
 - `serviceLayerId` – ID mapové služby, ve které se nachází požadovaný prvek modelu (v konfiguraci `layersForSelection -> serviceLayerId`)
 - `id` – ID vrstvy, ve které se nachází požadovaný prvek modelu (v konfiguraci `layersForSelection -> id`)
-- `queryParamValue` – číselná nebo textová hodnota atributu požadovaného prvku modelu (atribut nastavený v konfiguraci v `layersForSelection -> queryParamField`)
+- `uniqueValue` – číselná nebo textová unikátní hodnota požadovaného prvku modelu (hodnota odpovídá atributu nastavenému v konfiguraci v `layersForSelection -> uniqueField`)
 
 Hotový odkaz lze získat přímo v aplikaci v panelu Filtr. U každého prvku je tlačítko pro zkopírování odkazu. Zkopírovaná URL zachová všechny aktuální parametry aplikace a doplní parametr find pro vybraný prvek. Čárky mohou být v URL automaticky zapsány také jako %2C; oba zápisy jsou ekvivalentní.
 
@@ -66,10 +66,8 @@ Na modelovém příkladu nastavení jsou vidět pozice parametrů v kontextu str
       // Text a atributy, které se zobrazí ve výpisu prvků v panelu
       // Názvy atributů se uvádějí ve složených závorkách
       "displayField": "{longname}, {OID}",
-      // Název pole vrstvy použitého v URL parametru find
-      "queryParamField": "OID",
-      // Název Global ID pole vrstvy
-      "globalIdField": "GlobalId",
+      // Název pole s unikátní hodnotou použitého pro výběr prvku a URL parametr find
+      "uniqueField": "OID",
       // Libovolný název, který se zobrazí ve výpisu prvků v panelu
       "title": "Místnost budovy E Krajského úřadu"
     }

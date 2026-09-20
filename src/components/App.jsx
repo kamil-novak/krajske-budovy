@@ -61,6 +61,9 @@ const getDisplayFields = (displayField) =>
 const getDisplayText = (displayField, attributes) =>
   displayField.replace(/\{([^}]+)\}/g, (_, field) => attributes[field] ?? "")
 
+const getFilterValue = (value) =>
+  typeof value === "number" ? value : `'${String(value).replaceAll("'", "''")}'`
+
 const handleLayerListItemCreated = (event) => {
   if (!event.item.parent) {
     event.item.actionsSections = [[{
@@ -160,7 +163,7 @@ function App() {
       const displayFields = getDisplayFields(layer.displayField)
       const featuresResponse = await buildingComponentSublayer.queryFeatures({
         where: "1=1",
-        outFields: [...new Set([...displayFields, layer.queryParamField, layer.globalIdField])],
+        outFields: [...new Set([...displayFields, layer.uniqueField])],
         returnGeometry: true
       }) 
 
@@ -172,8 +175,7 @@ function App() {
           layerTitle: layer.title,
           parentLayer: buildingComponentSublayer.layer,
           displayField: layer.displayField,
-          globalIdField: layer.globalIdField,
-          queryParamField: layer.queryParamField,
+          uniqueField: layer.uniqueField,
           layer: buildingComponentSublayer,
           defaultLayerVisibility: buildingComponentSublayer.visible,
           feature
@@ -186,11 +188,12 @@ function App() {
     if (queryParams.has("find")) {
       try {
         const find = queryParams.get("find").split(",")
-        if (find.length === 3) {
+        if (find.length >= 3) {
+          const uniqueValue = find.slice(2).join(",")
           const feature = loadedFeatures.find((feature) =>
             String(feature.serviceLayerId) === find[0]
             && String(feature.id) === find[1]
-            && String(feature.feature.attributes[feature.queryParamField]) === find[2]
+            && String(feature.feature.attributes[feature.uniqueField]) === uniqueValue
           )
           if (feature) {
             await handleFeature(feature)
@@ -216,8 +219,10 @@ function App() {
     if (!view) { return }
 
     // Remove from selection
-    if (selectedFeature?.feature.attributes[selectedFeature.globalIdField] 
-        === feature.feature.attributes[feature.globalIdField]) {
+    if (selectedFeature?.serviceLayerId === feature.serviceLayerId
+        && selectedFeature.id === feature.id
+        && selectedFeature.feature.attributes[selectedFeature.uniqueField]
+        === feature.feature.attributes[feature.uniqueField]) {
       for (const parentLayer of temporaryBuildingLayersRef.current ) {
         if (parentLayer.title === feature.parentLayer.title) {
           parentLayer.visible = false
@@ -247,12 +252,12 @@ function App() {
     }
 
     // Filter feature
-    const globalIdField = feature.globalIdField
-    const globalIdValue = feature.feature.attributes[globalIdField]
+    const uniqueField = feature.uniqueField
+    const uniqueValue = feature.feature.attributes[uniqueField]
     feature.layer.visible = true;
     const buildingFilter = new BuildingFilter({
       filterBlocks: [{
-        filterExpression: `${globalIdField} = '${globalIdValue}'`,
+        filterExpression: `${uniqueField} = ${getFilterValue(uniqueValue)}`,
         filterMode: {
           type: "solid"
         }
@@ -282,7 +287,7 @@ function App() {
     url.searchParams.set("find", [
       feature.serviceLayerId,
       feature.id,
-      feature.feature.attributes[feature.queryParamField]
+      feature.feature.attributes[feature.uniqueField]
     ].join(","))
     return url.href
   }
@@ -374,7 +379,7 @@ function App() {
                   {
                     features.map((feature) => (
                       <calcite-list-item 
-                        key={feature.feature.attributes[feature.globalIdField]} 
+                        key={`${feature.serviceLayerId}-${feature.id}-${feature.feature.attributes[feature.uniqueField]}`}
                         label={getDisplayText(feature.displayField, feature.feature.attributes)}
                         description={feature.layerTitle} 
                         value={getDisplayText(feature.displayField, feature.feature.attributes)}

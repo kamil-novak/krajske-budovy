@@ -6,6 +6,7 @@
 - Vypnutí fixního měřítka při zoomu na objekt.
 - Možnost skládat text, který se zobrazí ve výpisu prvků v panelu z více atributů a obyčejného textu. Názvy atributů se uvádí ve složených závorkách.
 - Přidáno tlačítko "Zoom na budovu" do nástroje "Vrstvy"
+- Sjednocení atributu pro hledání přes URL parametr a pro výpis prvků v seznamu. Nyní se konfiguruje v nastavení `uniqueField`
 
 ## **1.0.1 (2026-08-22)**
 ### Nové funkce
