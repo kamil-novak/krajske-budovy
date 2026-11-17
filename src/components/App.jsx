@@ -159,6 +159,8 @@ function App() {
   const buildingFilterStateRef = useRef(null)
   const featureNavigationRef = useRef(null)
   const sliceStateRef = useRef(null)
+  const groundNavigationStateRef = useRef(null)
+  const selectionWheelHandleRef = useRef(null)
 
   // CONFIG
   const getData = async () => {
@@ -348,6 +350,15 @@ function App() {
     featureNavigationRef.current = null
     setIsZooming(false)
 
+    selectionWheelHandleRef.current?.remove()
+    selectionWheelHandleRef.current = null
+
+    const groundNavigationState = groundNavigationStateRef.current
+    if (groundNavigationState) {
+      groundNavigationState.ground.navigationConstraint = groundNavigationState.navigationConstraint
+      groundNavigationStateRef.current = null
+    }
+
     const temporaryLayer = temporaryBuildingLayersRef.current.get(feature.parentLayer)
     if (temporaryLayer) {
       temporaryLayer.visible = false
@@ -410,6 +421,29 @@ function App() {
     setIsZooming(true)
 
     try {
+      // Allow manual zoom near or below the terrain while inspecting a selected feature.
+      const ground = view.map.ground
+      groundNavigationStateRef.current = {
+        ground,
+        navigationConstraint: ground.navigationConstraint
+      }
+      ground.navigationConstraint = { type: "none" }
+
+      // Use the zoom buttons' camera path instead of picking the transparent shell under the cursor.
+      selectionWheelHandleRef.current = view.on("mouse-wheel", (event) => {
+        if (view.navigation.actionMap.mouseWheel !== "zoom"
+            || event.native?.shiftKey || event.native?.ctrlKey
+            || event.native?.altKey || event.native?.metaKey
+            || !Number.isFinite(event.deltaY) || event.deltaY === 0) { return }
+
+        event.stopPropagation()
+        event.preventDefault()
+        const zoomFactor = 2 ** (-Math.max(-120, Math.min(120, event.deltaY)) / 120)
+        view.goTo({ zoomFactor }, { animate: false }).catch((error) => {
+          if (error.name !== "AbortError") { console.error(error) }
+        })
+      })
+
       // Filter feature
       const uniqueField = feature.uniqueField
       const uniqueValue = feature.feature.attributes[uniqueField]
