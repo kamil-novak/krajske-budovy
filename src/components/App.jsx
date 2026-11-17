@@ -22,6 +22,8 @@ import "@arcgis/map-components/components/arcgis-compass"
 import "@arcgis/map-components/components/arcgis-layer-list"
 import BuildingFilter from "@arcgis/core/layers/support/BuildingFilter.js"
 import BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer.js"
+import SliceAnalysis from "@arcgis/core/analysis/SliceAnalysis.js"
+import SlicePlane from "@arcgis/core/analysis/SlicePlane.js"
 
 // CSS
 import "./App.css";
@@ -76,6 +78,21 @@ const getQueryValue = (layer, fieldName, value) => {
   return numericFieldTypes.includes(field?.type) && Number.isFinite(Number(value))
     ? Number(value)
     : value
+}
+
+const getSliceField = (layerConfig, layer) => layer.fields?.find(
+  (field) => field.name.toLowerCase() === layerConfig.slice?.levelField?.toLowerCase()
+)?.name
+
+const getSliceLevel = (feature) => {
+  const field = getSliceField(feature, feature.layer)
+  const value = feature.feature.attributes[field]
+  if (!field || value == null || !Array.isArray(feature.slice?.levels)) { return null }
+
+  return feature.slice.levels.find((level) =>
+    level.value != null && Number.isFinite(level.cutElevation)
+    && getQueryValue(feature.layer, field, level.value) === value
+  ) ?? null
 }
 
 const zoomToFeature = async (view, feature, buildingLayerView, signal) => {
@@ -135,12 +152,13 @@ function App() {
   // REF
   const sceneViewRef = useRef(null)
   const layerViewsRef = useRef(new Map())
-  const temporaryBuildingLayersRef = useRef([])
+  const temporaryBuildingLayersRef = useRef(new Map())
   const selectedFeatureRef = useRef(null)
   const activeFeatureRef = useRef(null)
   const layerVisibilityRef = useRef(new Map())
   const buildingFilterStateRef = useRef(null)
   const featureNavigationRef = useRef(null)
+  const sliceStateRef = useRef(null)
 
   // CONFIG
   const getData = async () => {
@@ -207,9 +225,7 @@ function App() {
       } = foundLayer
 
       // Create transparent version of the scene layer
-      const existsParentLayer = temporaryBuildingLayersRef.current.some(
-        layer => layer.title === buildingComponentSublayer.layer.title
-      )
+      const existsParentLayer = temporaryBuildingLayersRef.current.has(buildingComponentSublayer.layer)
       if (!existsParentLayer) {
         const temporaryBuildingLayer = new BuildingSceneLayer({
           title: buildingComponentSublayer.layer.title,
@@ -218,7 +234,7 @@ function App() {
           listMode: "hide",
           visible: false
         })
-        temporaryBuildingLayersRef.current.push(temporaryBuildingLayer)
+        temporaryBuildingLayersRef.current.set(buildingComponentSublayer.layer, temporaryBuildingLayer)
         sceneElement.view.map.add(temporaryBuildingLayer, 0)
       }
 
@@ -234,6 +250,7 @@ function App() {
       parentLayer: resolvedLayer.buildingComponentSublayer.layer,
       displayField: layerConfig.displayField,
       uniqueField: layerConfig.uniqueField,
+      slice: layerConfig.slice,
       layer: resolvedLayer.buildingComponentSublayer,
       layerHierarchy: resolvedLayer.layerHierarchy,
       feature
@@ -243,8 +260,9 @@ function App() {
       ...new Set([
         ...getDisplayFields(layerConfig.displayField),
         layerConfig.uniqueField,
-        buildingComponentSublayer.objectIdField
-      ])
+        buildingComponentSublayer.objectIdField,
+        getSliceField(layerConfig, buildingComponentSublayer)
+      ].filter(Boolean))
     ]
 
     // Resolve and select the requested feature before loading the complete list.
@@ -330,10 +348,16 @@ function App() {
     featureNavigationRef.current = null
     setIsZooming(false)
 
-    for (const parentLayer of temporaryBuildingLayersRef.current) {
-      if (parentLayer.title === feature.parentLayer.title) {
-        parentLayer.visible = false
-      }
+    const temporaryLayer = temporaryBuildingLayersRef.current.get(feature.parentLayer)
+    if (temporaryLayer) {
+      temporaryLayer.visible = false
+    }
+
+    const sliceState = sliceStateRef.current
+    if (sliceState) {
+      sliceState.exclusionsHandle.remove()
+      sceneViewRef.current.analyses.remove(sliceState.analysis)
+      sliceStateRef.current = null
     }
 
     const filterState = buildingFilterStateRef.current
@@ -389,9 +413,10 @@ function App() {
       // Filter feature
       const uniqueField = feature.uniqueField
       const uniqueValue = feature.feature.attributes[uniqueField]
+      const sliceLevel = getSliceLevel(feature)
       const buildingFilter = new BuildingFilter({
         filterBlocks: [{
-          filterExpression: `${uniqueField} = ${getFilterValue(uniqueValue)}`,
+          filterExpression: sliceLevel ? "1=1" : `${uniqueField} = ${getFilterValue(uniqueValue)}`,
           filterMode: {
             type: "solid"
           }
@@ -407,6 +432,15 @@ function App() {
       feature.parentLayer.filters = [buildingFilter]
       feature.parentLayer.activeFilterId = buildingFilter.id
 
+      if (sliceLevel) {
+        for (const sublayer of feature.parentLayer.allSublayers) {
+          if (sublayer.modelName === "Overview") {
+            layerVisibilityRef.current.set(sublayer, sublayer.visible)
+            sublayer.visible = false
+          }
+        }
+      }
+
       // Highlight feature
       selectedFeatureRef.current?.remove();
       selectedFeatureRef.current = null;
@@ -415,16 +449,55 @@ function App() {
       )
 
       // Enable client-side transparent layer
-      for (const parentLayer of temporaryBuildingLayersRef.current ) {
-        if (parentLayer.title === feature.parentLayer.title) {
-          parentLayer.visible = true
-        }
+      const temporaryLayer = temporaryBuildingLayersRef.current.get(feature.parentLayer)
+      if (temporaryLayer) {
+        const opacity = sliceLevel ? feature.slice.contextOpacity : undefined
+        temporaryLayer.opacity = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 0.06
+        temporaryLayer.visible = true
       }
 
       await zoomToFeature(view, feature, buildingLayerView, navigation.signal)
+      if (navigation.signal.aborted) { return }
+
+      if (sliceLevel) {
+        const extent = feature.parentLayer.fullExtent
+        const position = extent.center.clone()
+        position.z = sliceLevel.cutElevation
+        const analysis = new SliceAnalysis({
+          shape: new SlicePlane({
+            position,
+            tilt: 0,
+            width: extent.width * 1.1,
+            height: extent.height * 1.1
+          }),
+          excludeGroundSurface: true
+        })
+        // Exclude other models and their components, including layers loaded later.
+        const exclusionsHandle = watch(
+          () => view.map.allLayers.map((layer) => [layer, layer.allSublayers?.toArray()]),
+          () => {
+            analysis.excludedLayers.removeAll()
+            for (const layer of view.map.allLayers) {
+              if (layer === feature.parentLayer || layer.type === "group") { continue }
+              analysis.excludedLayers.add(layer)
+              analysis.excludedLayers.addMany(
+                layer.allSublayers?.filter((sublayer) => sublayer.type === "building-component").toArray() ?? []
+              )
+            }
+          },
+          { initial: true }
+        )
+        sliceStateRef.current = { analysis, exclusionsHandle }
+        view.analyses.add(analysis)
+        const analysisView = await view.whenAnalysisView(analysis)
+        if (navigation.signal.aborted) { return }
+        analysisView.interactive = false
+        analysisView.active = true
+      }
     } catch (error) {
       if (error.name !== "AbortError") {
         console.error(error)
+        if (featureNavigationRef.current === navigation) { clearFeatureSelection(feature) }
       }
     } finally {
       if (featureNavigationRef.current === navigation) {

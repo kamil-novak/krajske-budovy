@@ -36,11 +36,11 @@ Výchozím souborem konfigurace je `./dist/config/default.json`. Tento soubor lz
 
 
 ### Popis nastavení v rámci konfiguračního souboru
-Parametry nastavení jsou popsány formou komentářů v příkladu níže.
+Parametry nastavení jsou popsány formou komentářů v příkladu v kapitole **Struktura nastavení a příklad nastavení**.
 
 
 ### Struktura nastavení a příklad nastavení
-Na modelovém příkladu nastavení jsou vidět pozice parametrů v kontextu struktury celé JSON konfigurace. Datové typy nastavení výcházejí z hodnot modelového příkladu. Formou komentářů jsou jednotlivé parametry popsány. 
+Na modelovém příkladu nastavení jsou vidět pozice parametrů v kontextu struktury celé JSON konfigurace. Datové typy nastavení výcházejí z hodnot modelového příkladu. Význam parametrů je popsán formou komentářů. 
 ```json
 {
   // Název aplikace, který se objeví v horní liště (header)
@@ -69,11 +69,47 @@ Na modelovém příkladu nastavení jsou vidět pozice parametrů v kontextu str
       // Název pole s unikátní hodnotou použitého pro výběr prvku a URL parametr find
       "uniqueField": "OID",
       // Libovolný název, který se zobrazí ve výpisu prvků v panelu
-      "title": "Místnost budovy E Krajského úřadu"
+      "title": "Místnost budovy E Krajského úřadu",
+      // Nastavení parametrů v objektu slice je popsáno v samostatné kapitole "slice - Řez podlažím při výběru prvku"
+      "slice": {
+        "levelField": "BldgLevel",
+        "contextOpacity": 0.06,
+        "levels": [
+          { "value": 1, "cutElevation": 522.10 },
+          { "value": 2, "cutElevation": 525.75 },
+          { "value": 3, "cutElevation": 529.55 },
+          { "value": 4, "cutElevation": 533.35 },
+          { "value": 5, "cutElevation": 537.15 },
+          { "value": 6, "cutElevation": 540.95 }
+        ]
+      }
     }
   ] 
 }
 ```
+
+### `slice` - Řez podlažím při výběru prvku
+Každá položka `layersForSelection` může obsahovat vlastní volitelné nastavení `slice`:
+
+```json
+"slice": {
+  "levelField": "BldgLevel",
+  "contextOpacity": 0.06,
+  "levels": [
+    { "value": 1, "cutElevation": 522.10 },
+    { "value": 2, "cutElevation": 525.75 }
+  ]
+}
+```
+
+- `levelField`: Název atributu pro podlaží.
+- `contextOpacity`: Krytí průhledné kopie budovy od `0` do `1`, výchozí hodnota je `0.06`.
+- `levels`: Přiřazení hodnot atributu k výškám řezů. `value` může být číslo nebo text (např. `"1.NP"`). Číselné hodnoty se vyhodnocují podle typu pole; textové se porovnávají přesně.
+- `cutElevation`: Absolutní výška vodorovného řezu ve výškovém systému modelu, nikoli výška nad terénem ani relativní výška podlaží. Zadává v metrech. Řez je vhodné umístit pod spodní povrch stropu.
+
+Při výběru z panelu i přes URL `find` se zobrazí model pod řezem a průhledná kopie celé budovy. Řez platí i pro vybraný prvek, takže otevře horní plochu objemu místnosti. Zachovává se viditelnost ostatních podvrstev podle scény; zapne se cesta k vybranému prvku a vypne přehledový obal modelu. Ostatní budovy a terén se neřežou. Zrušení výběru odstraní řez a obnoví původní filtry a viditelnost.
+
+Bez nakonfigurovaného objektu `slice`, tj. v případě, že např. chybí pole nebo hodnota, se zprůhlední celý model kromě vybraného prvku.
 
 ## Poznámky
 - Pokud aplikace neběží na stejné doméně jako organizace ArcGIS, je potřeba pro tuto doménu povolit CORS (Organizace -> Nastavení -> Zabezpečení -> Povolit počátky). 

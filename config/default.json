@@ -13,14 +13,39 @@
       "id": 15,
       "displayField": "Místnost: {longname}, {BldgAddress}",
       "uniqueField": "OID",
-      "title": "Budova E Krajského úřadu"
+      "title": "Budova E Krajského úřadu",
+      "slice": {
+        "levelField": "BldgLevel",
+        "contextOpacity": 0.06,
+        "levels": [
+          { "value": 1, "cutElevation": 522.10 },
+          { "value": 2, "cutElevation": 525.75 },
+          { "value": 3, "cutElevation": 529.55 },
+          { "value": 4, "cutElevation": 533.35 },
+          { "value": 5, "cutElevation": 537.15 },
+          { "value": 6, "cutElevation": 540.95 },
+          { "value": 7, "cutElevation": 541.85 }
+        ]
+      }
     },
     {
       "serviceLayerId": "5c80316899484c22ac0490885f824e34",
       "id": 42,
       "displayField": "Požární hydrant: {Název_typu}",
       "uniqueField": "OID",
-      "title": "Budova E Krajského úřadu"
+      "title": "Budova E Krajského úřadu",
+      "slice": {
+        "levelField": "BldgLevel",
+        "contextOpacity": 0.06,
+        "levels": [
+          { "value": 1, "cutElevation": 522.10 },
+          { "value": 2, "cutElevation": 525.75 },
+          { "value": 3, "cutElevation": 529.55 },
+          { "value": 4, "cutElevation": 533.35 },
+          { "value": 5, "cutElevation": 537.15 },
+          { "value": 6, "cutElevation": 540.95 }
+        ]
+      }
     }
   ] 
 }

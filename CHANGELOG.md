@@ -1,5 +1,10 @@
 # Krajské budovy
 
+## **1.0.4 (2026-11-17)**
+### Úpravy
+- Po výběru prvku je zprůhledněna pouze ta část modelu, která se nachází v patrech nad vybraným prvkem.
+- Výšky řezů pater lze ovlivňovat v konfiguraci.
+
 ## **1.0.3 (2026-09-20)**
 ### Oprava
 - Oddělení závislosti přiblížení na prvek v URL parametru na načítání seznamu prvků.
